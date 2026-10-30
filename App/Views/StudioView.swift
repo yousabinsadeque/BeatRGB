@@ -75,7 +75,7 @@ struct StudioView: View {
         case .stopped: return model.isSyncing ? "Starting…" : "Starts with sync"
         case .starting: return "Starting…"
         case .running(let s): return s
-        case .permissionDenied: return "Screen Recording permission needed"
+        case .permissionDenied: return "Screen Recording permission needed" + (model.screenError.map { " (\($0))" } ?? "")
         case .failed(let e): return e
         }
     }

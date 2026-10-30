@@ -31,15 +31,14 @@ public final class ScreenSampler: NSObject, SCStreamOutput, SCStreamDelegate, @u
     @discardableResult public static func requestPermission() -> Bool { CGRequestScreenCaptureAccess() }
 
     public var latest: ScreenGrid? { latestGrid.withLock { $0 } }
+    /// The last ScreenCaptureKit error, shown next to a permission denial so it can be diagnosed.
+    public private(set) var lastError: String?
 
     public func start(displayIndex: Int) async {
         await stop()
         onStateChange?(.starting)
-        guard Self.hasPermission else {
-            Self.requestPermission()
-            onStateChange?(.permissionDenied)
-            return
-        }
+        // CGPreflightScreenCaptureAccess is cached for the life of the process and can say "no" after
+        // the user has granted access, so try ScreenCaptureKit first and only then report a denial.
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
             guard !content.displays.isEmpty else { throw SCStreamError(.noDisplayList) }
@@ -60,7 +59,14 @@ public final class ScreenSampler: NSObject, SCStreamOutput, SCStreamDelegate, @u
             self.stream = stream
             onStateChange?(.running("Display \(display.displayID) (\(display.width)×\(display.height))"))
         } catch {
-            onStateChange?(.failed(error.localizedDescription))
+            let ns = error as NSError
+            lastError = "\(ns.domain) \(ns.code): \(ns.localizedDescription)"
+            if !Self.hasPermission || (error as NSError).code == SCStreamError.userDeclined.rawValue {
+                Self.requestPermission()
+                onStateChange?(.permissionDenied)
+            } else {
+                onStateChange?(.failed(error.localizedDescription))
+            }
         }
     }
 

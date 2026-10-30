@@ -14,6 +14,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var isSyncing = false
     @Published private(set) var captureState: CaptureState = .stopped
     @Published private(set) var screenState: ScreenSampler.State = .stopped
+    @Published private(set) var screenError: String?
     @Published private(set) var knobState: KnobController.State = .off
     @Published private(set) var knobLastEvent = "—"
     @Published private(set) var otherRGBApps: [String] = []
@@ -173,7 +174,10 @@ final class AppModel: ObservableObject {
             let display = settings.screenDisplayIndex
             if screen == nil {
                 let s = ScreenSampler()
-                s.onStateChange = { [weak self] state in Task { @MainActor in self?.screenState = state } }
+                s.onStateChange = { [weak self, weak s] state in
+                    let error = s?.lastError
+                    Task { @MainActor in self?.screenState = state; self?.screenError = error }
+                }
                 screen = s
                 engine.setScreenSampler(s)
                 Task { await s.start(displayIndex: display) }
