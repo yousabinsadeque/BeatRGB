@@ -21,7 +21,7 @@ A native macOS app (Swift / SwiftUI) that turns whatever your Mac is playing int
 
 ```bash
 cd ~/Desktop/BeatRGB
-./scripts/build.sh            # runs unit tests, builds Release, installs ~/Applications/BeatRGB.app
+./scripts/build.sh            # runs unit tests, builds Release, installs /Applications/BeatRGB.app
 ```
 
 `./scripts/build.sh Debug` gives a debug build. Build output goes to `~/Library/Caches/BeatRGB`
@@ -69,6 +69,11 @@ troubleshooting* has buttons that open each of these pages.
   * Rainbow Music Wave: speed and brightness follow loudness and beats.
   * Full-Keyboard Reaction: hue follows the bass/mid/treble balance; brightness follows volume.
   * Beat Ripple: rings start on each detected beat.
+  * Centre EQ: the spectrum mirrored around the middle (bass in the centre column, highs at both edges); bars grow up and down from the middle row, blending a centre and an edge colour.
+  * VU Meter: each row is a level meter (bottom row = bass, top row = treble) filling left to right in green, yellow and red, with a falling peak marker.
+  * Beat Flash: the whole keyboard flashes on every beat and steps to a new colour each time; Speed sets how fast it fades.
+  * Treble Sparkle: random keys twinkle around your colour; more with more treble, a burst on each beat.
+  * Bass Fire: flickering flames rise from the bottom row, as high as the bass pushes them.
   * **Screen Mirror:** keys take the colours of the matching part of the display (ScreenCaptureKit at 136×72, averaged).
   * Static Colour.
 * **Idle:** when music stops (noise gate plus a hold time), the lights fade to a static colour, breathing, rainbow or off.
@@ -79,8 +84,9 @@ troubleshooting* has buttons that open each of these pages.
   * Checks the device's identity and Direct mode every second.
   * Re-finds the keyboard if OpenRGB's device list changes, and reconnects automatically with backoff.
   * On stop or quit it restores the colours from before it started (or idle, or off, as you choose) and removes its audio tap.
-* **Profiles:** create, rename, duplicate, delete and load. Built-in profiles: Rainbow Spectrum, Bass Party, Relaxed Ambient, Gaming, Work Mode, Screen Mirror. Saved to `~/Library/Application Support/BeatRGB/profiles.json`.
+* **Profiles:** create, rename, duplicate, delete and load. Built-in profiles: Rainbow Spectrum, Bass Party, Relaxed Ambient, Gaming, Work Mode, Club Strobe, Campfire, Starlight, Centre EQ, Screen Mirror (existing installs can add the new ones with *Restore built-in profiles*). Saved to `~/Library/Application Support/BeatRGB/profiles.json`.
 * **Menu bar:** Start/Stop, effect, profile, brightness, level meter, Open, Quit. Closing the window keeps BeatRGB running, and it can hide its Dock icon.
+* **Background mode:** Settings → *Run in the background* can open BeatRGB with no window (menu bar icon only), hide the Dock icon, start sync on launch and launch at login; *Set up full background mode* turns on all four. While syncing, BeatRGB tells macOS it is doing user work, so App Nap doesn't slow the lighting when no window is open.
 * **Settings:** launch at login (SMAppService), OpenRGB host and port, auto-reconnect, what happens on stop, serial lock, audio source, permission shortcuts, volume knob.
 * **Diagnostics:** compatibility checks, OpenRGB device scan (modes, LEDs, serial), fps and latency, event log, copy-diagnostics button.
 
@@ -111,7 +117,7 @@ ScreenCaptureKit ─▶ ScreenGrid ───────┘     AudioAnalyzer (v
 | Native USB sync | ✅ Audio Spectrum at 30 fps, 23 ms per frame. Every frame acknowledged by the keyboard (326 frames, 0 rejected) |
 | **Physical keys light up (Native USB)** | ✅ confirmed by you |
 | Native USB stop | ✅ hardware-mode command sent ("keyboard returned to its on-board lighting") |
-| Unit tests | ✅ 55 tests: OpenRGB protocol, parser with real fixtures, client and engine against a fake OpenRGB server, Corsair V2 packets byte-for-byte against OpenRGB's layout, native driver against a mock keyboard, DSP, effects, screen downsampling, knob decoding, profiles |
+| Unit tests | ✅ 61 tests: OpenRGB protocol, parser with real fixtures, client and engine against a fake OpenRGB server, Corsair V2 packets byte-for-byte against OpenRGB's layout, native driver against a mock keyboard, DSP, effects, screen downsampling, knob decoding, profiles |
 
 ### Still needs you to check
 

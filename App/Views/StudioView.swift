@@ -35,6 +35,8 @@ struct StudioView: View {
                 Panel(title: "Screen Mirror") {
                     Text("Keys take the colour of the matching area of your display: the top row follows the top of the screen, the left keys the left edge.")
                         .font(.callout).foregroundStyle(.secondary)
+                    LabeledSlider(title: "Screen brightness", value: $model.settings.screenGain, range: 1...4,
+                                  format: { String(format: "%.1f×", $0) })
                     LabeledSlider(title: "Colour boost", value: $model.settings.screenSaturation, range: 0...1)
                     Stepper("Display \(model.settings.screenDisplayIndex + 1)", value: $model.settings.screenDisplayIndex, in: 0...5)
                     HStack {
@@ -87,12 +89,13 @@ struct StudioView: View {
                 ForEach(SpectrumStyle.allCases) { Text($0.title).tag($0) }
             }
         }
-        if e != .rainbowWave && e != .screenMirror && !(e == .spectrum && model.settings.spectrumStyle == .multicolor) {
-            ColorPicker(e == .spectrum && model.settings.spectrumStyle == .gradient ? "Bottom colour" : "Colour",
+        let gradient = e == .spectrum && model.settings.spectrumStyle == .gradient
+        if e.usesPrimaryColor && !(e == .spectrum && model.settings.spectrumStyle == .multicolor) {
+            ColorPicker(gradient ? "Bottom colour" : e == .mirrorSpectrum ? "Centre colour" : "Colour",
                         selection: $model.settings.primaryColor.color, supportsOpacity: false)
         }
-        if e == .spectrum && model.settings.spectrumStyle == .gradient {
-            ColorPicker("Top colour", selection: $model.settings.secondaryColor.color, supportsOpacity: false)
+        if gradient || e == .mirrorSpectrum {
+            ColorPicker(gradient ? "Top colour" : "Edge colour", selection: $model.settings.secondaryColor.color, supportsOpacity: false)
         }
         LabeledSlider(title: "Brightness", value: $model.settings.brightness, range: 0...1)
         LabeledSlider(title: "Speed", value: $model.settings.speed, range: 0.1...3, format: { String(format: "%.1f×", $0) })

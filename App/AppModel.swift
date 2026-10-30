@@ -36,6 +36,8 @@ final class AppModel: ObservableObject {
     private var screen: ScreenSampler?
     private let knob = KnobController()
     private var saveWork: DispatchWorkItem?
+    /// Keeps App Nap from throttling the lighting loop while BeatRGB has no visible window.
+    private var syncActivity: NSObjectProtocol?
     private var timers: Set<AnyCancellable> = []
 
     var settings: LightingSettings {
@@ -78,6 +80,8 @@ final class AppModel: ObservableObject {
     func start() {
         guard !isSyncing else { return }
         isSyncing = true
+        syncActivity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical], reason: "Syncing keyboard lighting")
         startCapture()
         updateScreenSampler()
         engine.start()
@@ -86,6 +90,7 @@ final class AppModel: ObservableObject {
     func stop(completion: (() -> Void)? = nil) {
         guard isSyncing else { completion?(); return }
         isSyncing = false
+        if let a = syncActivity { ProcessInfo.processInfo.endActivity(a); syncActivity = nil }
         stopCapture()
         stopScreen()
         engine.stop { Task { @MainActor in completion?() } }
@@ -318,6 +323,7 @@ struct Preferences: Codable, Equatable {
     var knobEnabled = true
     var hideDockIcon = false
     var startSyncOnLaunch = false
+    var openInBackground = false
 
     var engineConfig: EngineConfig {
         var c = EngineConfig()
@@ -353,6 +359,7 @@ struct Preferences: Codable, Equatable {
         stopBehavior = v(.stopBehavior, d.stopBehavior); captureSource = v(.captureSource, d.captureSource)
         lockedSerial = v(.lockedSerial, d.lockedSerial); knobEnabled = v(.knobEnabled, d.knobEnabled)
         hideDockIcon = v(.hideDockIcon, d.hideDockIcon); startSyncOnLaunch = v(.startSyncOnLaunch, d.startSyncOnLaunch)
+        openInBackground = v(.openInBackground, d.openInBackground)
     }
 }
 

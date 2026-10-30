@@ -34,12 +34,20 @@ public final class EffectRenderer {
     private var idleMix: Float = 1          // 1 = fully idle, 0 = fully active
     private var ripples: [(x: Float, y: Float, age: Float, hue: Float)] = []
     private var screenColors: [RGBF] = []
+    private var flash = Envelope(attack: 0.004, release: 0.18)
+    private var flashHue: Float = 0
+    private var meterPeaks: [Float] = []    // VU peak-hold marker per row
+    private var sparkleLevel: [Float] = []  // per-LED twinkle brightness
+    private var sparkleHue: [Float] = []
+    private var heat: [Float] = []          // per-LED flame intensity
+    private var rng: UInt64 = 0x9E37_79B9_7F4A_7C15
 
     public init(layout: KeyboardLayout = .placeholderTKL) { self.layout = layout }
 
     public func setLayout(_ layout: KeyboardLayout) {
         self.layout = layout
         screenColors = []
+        meterPeaks = []; sparkleLevel = []; sparkleHue = []; heat = []
     }
 
     public func render(features f: AudioFeatures, screen: ScreenGrid?, dt: Double) -> [RGBF] {
@@ -48,6 +56,11 @@ public final class EffectRenderer {
         let active: [RGBF]
         switch s.effect {
         case .spectrum: active = spectrum(f)
+        case .mirrorSpectrum: active = mirrorSpectrum(f)
+        case .vuMeter: active = vuMeter(f, dt: dt)
+        case .beatStrobe: active = beatStrobe(f, dt: dt)
+        case .sparkle: active = sparkle(f, dt: dt)
+        case .fire: active = fire(f, dt: dt)
         case .bassPulse: active = bassPulse(f, dt: dt)
         case .rainbowWave: active = rainbowWave(f, dt: dt)
         case .fullReact: active = fullReact(f)
@@ -182,6 +195,92 @@ public final class EffectRenderer {
         }
     }
 
+    /// Bass in the centre column, highs at both edges; bars grow up and down from the middle row.
+    private func mirrorSpectrum(_ f: AudioFeatures) -> [RGBF] {
+        let s = settings
+        let rowSize = 2 / max(1, Float(layout.rows - 1))
+        return layout.positions.map { p in
+            let v = bandValue(f, at: abs(p.x - 0.5) * 2)
+            let reach = abs(p.y - 0.5) * 2                 // 0 at the middle row, 1 at top/bottom
+            let lit = min(1, max(0, (v * (1 + rowSize) - reach) / rowSize))
+            let color = RGBF(s.primaryColor).mix(RGBF(s.secondaryColor), reach)
+            return color * ((0.05 + 0.95 * lit) * (0.35 + 0.65 * v))
+        }
+    }
+
+    /// Each row is a level meter (bottom row = bass, top row = treble) filling left to right,
+    /// green → yellow → red, with a peak marker that falls back slowly.
+    private func vuMeter(_ f: AudioFeatures, dt: Double) -> [RGBF] {
+        let rows = max(1, layout.rows)
+        if meterPeaks.count != rows { meterPeaks = Array(repeating: 0, count: rows) }
+        var rowLevel = [Float](repeating: 0, count: rows)
+        for r in 0..<rows {
+            let band = rows == 1 ? Float(0) : 1 - Float(r) / Float(rows - 1)
+            rowLevel[r] = min(1, bandValue(f, at: band) * 0.7 + f.level * 0.3)
+            meterPeaks[r] = max(rowLevel[r], meterPeaks[r] - Float(dt) * 0.6 * Float(settings.speed))
+        }
+        let keyWidth = 1 / max(1, Float(layout.cols))
+        return layout.positions.map { p in
+            let r = min(rows - 1, max(0, Int((p.y * Float(rows - 1)).rounded())))
+            let zone = p.x < 0.6 ? RGBF(0, 1, 0.15) : p.x < 0.85 ? RGBF(1, 0.75, 0) : RGBF(1, 0.05, 0.05)
+            if p.x <= rowLevel[r] { return zone }
+            if abs(p.x - meterPeaks[r]) < keyWidth { return zone * 0.7 }
+            return zone * 0.04
+        }
+    }
+
+    /// The whole keyboard flashes on every beat, stepping to a new hue each time.
+    private func beatStrobe(_ f: AudioFeatures, dt: Double) -> [RGBF] {
+        flash.release = 0.18 / max(0.1, settings.speed)
+        if f.beat { flashHue += 0.382 }               // golden-ratio steps keep successive colours distinct
+        let e = flash.process(f.beat ? 1 : 0, dt: dt)
+        let color = RGBF.hsv(flashHue, 1, 1) * max(e, 0.03 + 0.12 * f.level)
+        return Array(repeating: color, count: layout.ledCount)
+    }
+
+    /// Random keys twinkle: more of them with more treble, a burst on each beat.
+    private func sparkle(_ f: AudioFeatures, dt: Double) -> [RGBF] {
+        let n = layout.ledCount
+        if sparkleLevel.count != n {
+            sparkleLevel = Array(repeating: 0, count: n); sparkleHue = Array(repeating: 0, count: n)
+        }
+        let speed = Float(settings.speed)
+        let rate = (0.15 + 6 * f.treble * f.level + (f.beat ? 0.25 / Float(max(dt, 1e-3)) : 0)) * speed
+        let chance = min(1, rate * Float(dt) * 0.25)
+        let decay = Float(exp(-dt * 3.5 * Double(speed)))
+        let baseHue = RGBF(settings.primaryColor).hsv.h
+        for i in 0..<n {
+            sparkleLevel[i] *= decay
+            if random() < chance {
+                sparkleLevel[i] = 0.6 + 0.4 * random()
+                sparkleHue[i] = baseHue + (random() - 0.5) * 0.3
+            }
+        }
+        let glow = RGBF(settings.primaryColor) * (0.03 + 0.1 * f.level)
+        return (0..<n).map { glow + RGBF.hsv(sparkleHue[$0], 0.75, 1) * sparkleLevel[$0] }
+    }
+
+    /// Flames rise from the bottom row; their height follows the bass and they flicker.
+    private func fire(_ f: AudioFeatures, dt: Double) -> [RGBF] {
+        let n = layout.ledCount
+        if heat.count != n { heat = Array(repeating: 0, count: n) }
+        let flameHeight = 0.12 + 0.95 * max(f.bass, f.level * 0.8)
+        let k = Float(1 - exp(-dt / 0.06 * settings.speed))
+        for i in 0..<n {
+            let h = 1 - layout.positions[i].y                 // 0 at the bottom row
+            let flicker = 0.7 + 0.3 * random()
+            let target = min(1, max(0, (flameHeight - h) / 0.45)) * flicker
+            heat[i] += (target - heat[i]) * k
+        }
+        return heat.map { t in RGBF(min(1, t * 2.2), min(1, max(0, t * 2.2 - 0.9)) * 0.75, max(0, t * 3 - 2.4) * 0.5) }
+    }
+
+    /// Deterministic pseudo-random number in 0..<1 (seeded, so tests are repeatable).
+    private func random() -> Float {
+        rng = rng &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+        return Float(rng >> 40) / Float(1 << 24)
+    }
+
     private func screenMirror(_ screen: ScreenGrid?, dt: Double) -> [RGBF] {
         let n = layout.ledCount
         if screenColors.count != n { screenColors = Array(repeating: .black, count: n) }
@@ -189,12 +288,13 @@ public final class EffectRenderer {
         // ~120 ms smoothing so video doesn't strobe the keyboard.
         let k = Float(1 - exp(-dt / max(0.02, 0.12 * (1.2 - settings.smoothing))))
         let boost = Float(settings.screenSaturation)
+        let gain = Float(max(1, settings.screenGain))
         for i in 0..<n {
             let p = layout.positions[i]
             var c = screen.sample(x: p.x, y: p.y)
-            if boost > 0 {
+            if boost > 0 || gain > 1 {
                 let hsv = c.hsv
-                c = RGBF.hsv(hsv.h, min(1, hsv.s * (1 + boost * 1.5)), hsv.v)
+                c = RGBF.hsv(hsv.h, min(1, hsv.s * (1 + boost * 1.5)), min(1, hsv.v * gain))
             }
             screenColors[i] = screenColors[i].mix(c, k)
         }

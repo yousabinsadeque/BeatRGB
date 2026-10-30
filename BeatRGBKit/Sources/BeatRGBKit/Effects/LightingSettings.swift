@@ -1,12 +1,18 @@
 import Foundation
 
 public enum EffectKind: String, Codable, CaseIterable, Identifiable, Sendable {
-    case spectrum, bassPulse, rainbowWave, fullReact, ripple, screenMirror, staticColor
+    case spectrum, mirrorSpectrum, vuMeter, bassPulse, beatStrobe, rainbowWave, fullReact, ripple, sparkle, fire,
+         screenMirror, staticColor
     public var id: String { rawValue }
 
     public var title: String {
         switch self {
         case .spectrum: return "Audio Spectrum"
+        case .mirrorSpectrum: return "Centre EQ"
+        case .vuMeter: return "VU Meter"
+        case .beatStrobe: return "Beat Flash"
+        case .sparkle: return "Treble Sparkle"
+        case .fire: return "Bass Fire"
         case .bassPulse: return "Bass Pulse"
         case .rainbowWave: return "Rainbow Music Wave"
         case .fullReact: return "Full-Keyboard Reaction"
@@ -19,6 +25,11 @@ public enum EffectKind: String, Codable, CaseIterable, Identifiable, Sendable {
     public var symbol: String {
         switch self {
         case .spectrum: return "chart.bar.fill"
+        case .mirrorSpectrum: return "align.vertical.center.fill"
+        case .vuMeter: return "gauge.with.needle.fill"
+        case .beatStrobe: return "bolt.fill"
+        case .sparkle: return "sparkles"
+        case .fire: return "flame.fill"
         case .bassPulse: return "waveform.path.ecg"
         case .rainbowWave: return "rainbow"
         case .fullReact: return "circle.lefthalf.filled"
@@ -32,6 +43,13 @@ public enum EffectKind: String, Codable, CaseIterable, Identifiable, Sendable {
     public var isAudioReactive: Bool { self != .screenMirror && self != .staticColor }
     public var usesAudio: Bool { isAudioReactive }
     public var usesScreen: Bool { self == .screenMirror }
+    /// Effects whose look depends on the Colour picker (the rest use their own palette).
+    public var usesPrimaryColor: Bool {
+        switch self {
+        case .spectrum, .mirrorSpectrum, .bassPulse, .fullReact, .ripple, .sparkle, .staticColor: return true
+        case .vuMeter, .beatStrobe, .rainbowWave, .fire, .screenMirror: return false
+        }
+    }
 }
 
 public enum SpectrumStyle: String, Codable, CaseIterable, Identifiable, Sendable {
@@ -83,6 +101,8 @@ public struct LightingSettings: Codable, Equatable, Sendable {
     public var idleDelay: Double = 2
     /// Screen Mirror: saturation boost 0…1 and which display (0 = main).
     public var screenSaturation: Double = 0.35
+    /// Screen Mirror brightness multiplier (1…4): averaged screen areas are usually dim on the keys.
+    public var screenGain: Double = 2
     public var screenDisplayIndex: Int = 0
     public var targetFPS: Double = 30
 
@@ -112,6 +132,7 @@ public struct LightingSettings: Codable, Equatable, Sendable {
         idleColor = v(.idleColor, d.idleColor)
         idleDelay = v(.idleDelay, d.idleDelay)
         screenSaturation = v(.screenSaturation, d.screenSaturation)
+        screenGain = v(.screenGain, d.screenGain)
         screenDisplayIndex = v(.screenDisplayIndex, d.screenDisplayIndex)
         targetFPS = v(.targetFPS, d.targetFPS)
     }

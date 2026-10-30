@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds BeatRGB, runs the unit tests, and installs the app to ~/Applications.
+# Builds BeatRGB, runs the unit tests, and installs the app to /Applications.
 # Build products live in ~/Library/Caches/BeatRGB because iCloud-synced folders (like Desktop)
 # attach extended attributes that make code signing fail.
 set -euo pipefail
@@ -33,14 +33,19 @@ else
   codesign --force --sign - --preserve-metadata=entitlements \
     -r='designated => identifier "com.beatrgb.app"' "$APP" 2>&1 | grep -v "replacing existing signature" || true
 fi
-mkdir -p "$HOME/Applications"
+DEST="/Applications/BeatRGB.app"
 osascript -e 'tell application id "com.beatrgb.app" to quit' 2>/dev/null || true
 sleep 1
-rm -rf "$HOME/Applications/BeatRGB.app"
-cp -R "$APP" "$HOME/Applications/"
+rm -rf "$DEST"
+cp -R "$APP" /Applications/
+# Earlier builds installed to ~/Applications; move that copy to the Trash so only one BeatRGB exists.
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+if [[ -d "$HOME/Applications/BeatRGB.app" ]]; then
+  "$LSREGISTER" -u "$HOME/Applications/BeatRGB.app" 2>/dev/null || true
+  mv "$HOME/Applications/BeatRGB.app" "$HOME/.Trash/BeatRGB-old-$(date +%s).app"
+fi
 # Keep Launch Services (and so System Settings' privacy lists) pointed at the installed copy, not the
 # build product, or a permission can end up granted to the wrong copy.
-LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 "$LSREGISTER" -u "$APP" 2>/dev/null || true
-"$LSREGISTER" -f "$HOME/Applications/BeatRGB.app"
-echo "▸ Installed $HOME/Applications/BeatRGB.app"
+"$LSREGISTER" -f "$DEST"
+echo "▸ Installed $DEST"

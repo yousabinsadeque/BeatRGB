@@ -42,7 +42,19 @@ public struct ProfileLibrary: Codable, Equatable, Sendable {
                 $0.effect = .fullReact; $0.brightness = 0.35; $0.smoothing = 0.85; $0.sensitivity = 0.6
                 $0.idle = .staticColor; $0.idleColor = ColorValue(hex: 0xFFE6C8)
             },
-            make("Screen Mirror") { $0.effect = .screenMirror; $0.brightness = 0.9; $0.smoothing = 0.5 },
+            make("Club Strobe") { $0.effect = .beatStrobe; $0.speed = 1.2; $0.idle = .rainbow },
+            make("Campfire") {
+                $0.effect = .fire; $0.bassResponse = 1.2; $0.idle = .breathing; $0.idleColor = ColorValue(hex: 0xFF5A00)
+            },
+            make("Starlight") {
+                $0.effect = .sparkle; $0.primaryColor = ColorValue(hex: 0x7FA8FF); $0.idle = .breathing
+                $0.idleColor = ColorValue(hex: 0x203060)
+            },
+            make("Centre EQ") {
+                $0.effect = .mirrorSpectrum; $0.primaryColor = ColorValue(hex: 0x00E5FF)
+                $0.secondaryColor = ColorValue(hex: 0xFF00C8)
+            },
+            make("Screen Mirror") { $0.effect = .screenMirror; $0.brightness = 1; $0.smoothing = 0.5 },
         ]
         return ProfileLibrary(profiles: profiles, activeID: profiles[0].id)
     }

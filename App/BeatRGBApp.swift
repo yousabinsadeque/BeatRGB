@@ -14,6 +14,8 @@ struct BeatRGBApp: App {
                 .frame(minWidth: 900, minHeight: 620)
         }
         .defaultSize(width: 1080, height: 720)
+        // In background mode BeatRGB starts with no window, only its menu bar icon.
+        .defaultLaunchBehavior(model.prefs.openInBackground ? .suppressed : .presented)
         .commands {
             CommandGroup(after: .appInfo) {
                 Button(model.isSyncing ? "Stop Sync" : "Start Sync") { model.toggle() }

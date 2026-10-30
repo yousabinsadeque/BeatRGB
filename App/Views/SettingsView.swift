@@ -6,12 +6,19 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Panel(title: "General") {
+            Panel(title: "Run in the background") {
+                Toggle("Open in the background (no window, menu bar icon only)", isOn: $model.prefs.openInBackground)
+                Toggle("Hide Dock icon", isOn: $model.prefs.hideDockIcon)
+                Toggle("Start sync when BeatRGB opens", isOn: $model.prefs.startSyncOnLaunch)
                 Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.launchAtLogin = $0 }))
                 Text(model.launchAtLoginStatus).font(.caption).foregroundStyle(.secondary)
-                Toggle("Run in menu bar only (hide Dock icon)", isOn: $model.prefs.hideDockIcon)
-                Toggle("Start sync when BeatRGB opens", isOn: $model.prefs.startSyncOnLaunch)
-                Text("Closing the window keeps BeatRGB running from the menu bar; use Quit there to exit.")
+                Button("Set up full background mode") {
+                    model.prefs.openInBackground = true
+                    model.prefs.hideDockIcon = true
+                    model.prefs.startSyncOnLaunch = true
+                    model.launchAtLogin = true
+                }
+                Text("Closing the window keeps BeatRGB running and lighting the keyboard from the menu bar icon; use Quit there to exit. Full background mode turns on all four options above, so lighting starts by itself when you log in.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

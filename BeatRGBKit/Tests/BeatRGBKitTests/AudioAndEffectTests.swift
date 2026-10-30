@@ -223,3 +223,95 @@ func run(_ analyzer: AudioAnalyzer, seconds: Double, signal: (Int) -> [Float]) -
         }
     }
 }
+
+@Suite struct MusicEffectTests {
+    func features(bands: [Float], level: Float = 0.8, bass: Float = 0, treble: Float = 0, beat: Bool = false) -> AudioFeatures {
+        var f = AudioFeatures(bandCount: bands.count)
+        f.bands = bands; f.isSilent = false; f.level = level; f.bass = bass; f.treble = treble; f.beat = beat
+        return f
+    }
+
+    /// Renders long enough for the idle→music crossfade to finish.
+    func settle(_ r: EffectRenderer, _ f: AudioFeatures, frames: Int = 40) -> [RGBF] {
+        var out: [RGBF] = []
+        for _ in 0..<frames { out = r.render(features: f, screen: nil, dt: 1.0 / 30) }
+        return out
+    }
+
+    func renderer(_ effect: EffectKind) -> EffectRenderer {
+        let r = EffectRenderer(layout: .grid(rows: 6, cols: 17))
+        r.settings.effect = effect; r.settings.brightness = 1
+        return r
+    }
+
+    @Test func everyAudioEffectRendersFullFrame() {
+        for kind in EffectKind.allCases where kind.isAudioReactive {
+            let out = settle(renderer(kind), features(bands: [1, 0.5, 0.2], bass: 1, treble: 0.5, beat: true), frames: 5)
+            #expect(out.count == 6 * 17, "\(kind)")
+            #expect(out.allSatisfy { $0.r.isFinite && $0.g.isFinite && $0.b.isFinite }, "\(kind)")
+        }
+    }
+
+    @Test func centreEQPutsBassInTheMiddle() {
+        let r = renderer(.mirrorSpectrum)
+        var bands = [Float](repeating: 0, count: 24); bands[0] = 1; bands[1] = 1
+        let out = settle(r, features(bands: bands))
+        let middle = out[2 * 17 + 8].luminance, edge = out[2 * 17 + 0].luminance
+        #expect(middle > edge * 5)
+    }
+
+    @Test func vuMeterFillsFromTheLeft() {
+        let r = renderer(.vuMeter)
+        let out = settle(r, features(bands: [0.5, 0.5, 0.5], level: 0.5))
+        #expect(out[3 * 17 + 1].luminance > out[3 * 17 + 15].luminance * 5)
+        #expect(out[3 * 17 + 1].g > out[3 * 17 + 1].r)   // left side is green
+    }
+
+    @Test func beatFlashesThenFades() {
+        let r = renderer(.beatStrobe)
+        _ = settle(r, features(bands: [0], level: 0.1))
+        let hit = r.render(features: features(bands: [0], level: 0.1, beat: true), screen: nil, dt: 1.0 / 30)
+        var later: [RGBF] = []
+        for _ in 0..<20 { later = r.render(features: features(bands: [0], level: 0.1), screen: nil, dt: 1.0 / 30) }
+        #expect(hit[0].luminance > 0.5)
+        #expect(later[0].luminance < hit[0].luminance * 0.3)
+    }
+
+    @Test func sparkleDensityFollowsTreble() {
+        func lit(_ treble: Float) -> Int {
+            let r = renderer(.sparkle)
+            return settle(r, features(bands: [0.2], level: 0.9, treble: treble), frames: 60).filter { $0.luminance > 0.3 }.count
+        }
+        #expect(lit(1) > lit(0) + 5)
+    }
+
+    @Test func fireRisesWithBass() {
+        func topRowHeat(_ bass: Float) -> Float {
+            let r = renderer(.fire)
+            return settle(r, features(bands: [bass], bass: bass), frames: 60)[0..<17].map(\.luminance).reduce(0, +)
+        }
+        let r = renderer(.fire)
+        let quiet = settle(r, features(bands: [0.1], level: 0.1, bass: 0.1), frames: 60)
+        #expect(quiet[5 * 17 + 8].luminance > quiet[0 * 17 + 8].luminance)   // flames start at the bottom
+        #expect(topRowHeat(1) > topRowHeat(0.1) + 0.5)
+    }
+}
+
+@Suite struct ScreenBrightnessTests {
+    @Test func screenGainBrightensDimScreens() {
+        func key(gain: Double) -> RGBF {
+            let r = EffectRenderer(layout: .grid(rows: 1, cols: 1))
+            r.settings.effect = .screenMirror; r.settings.brightness = 1
+            r.settings.screenSaturation = 0; r.settings.screenGain = gain
+            let dim = ScreenGrid(width: 1, height: 1, pixels: [RGBF(0.2, 0.1, 0.05)])
+            var out: [RGBF] = []
+            for _ in 0..<60 { out = r.render(features: .silent, screen: dim, dt: 1.0 / 30) }
+            return out[0]
+        }
+        let plain = key(gain: 1), boosted = key(gain: 3)
+        #expect(abs(plain.r - 0.2) < 0.01)
+        #expect(abs(boosted.r - 0.6) < 0.02)                  // 3× brighter
+        #expect(abs(boosted.g / boosted.r - 0.5) < 0.02)      // same colour
+        #expect(key(gain: 4).r <= 1)
+    }
+}
