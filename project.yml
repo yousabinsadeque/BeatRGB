@@ -1,0 +1,60 @@
+name: BeatRGB
+options:
+  bundleIdPrefix: com.beatrgb
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+packages:
+  BeatRGBKit:
+    path: BeatRGBKit
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  BeatRGB:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    dependencies:
+      - package: BeatRGBKit
+    info:
+      path: App/Support/Info.plist
+      properties:
+        CFBundleDisplayName: BeatRGB
+        CFBundleName: BeatRGB
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: "15.0"
+        NSHumanReadableCopyright: "Local-only lighting controller. No audio is recorded or uploaded."
+        NSAudioCaptureUsageDescription: "BeatRGB analyses the sound your Mac is playing to animate your keyboard lighting. Audio is processed in memory only and is never recorded or uploaded."
+        NSMicrophoneUsageDescription: "Only used if you choose an input device (such as a BlackHole loopback) as BeatRGB's audio source."
+        NSScreenCaptureUsageDescription: "Screen Mirror samples a tiny, low-resolution copy of your display to colour the keyboard. Nothing is recorded."
+    entitlements:
+      path: App/Support/BeatRGB.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.beatrgb.app
+        PRODUCT_NAME: BeatRGB
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        COMBINE_HIDPI_IMAGES: YES
+schemes:
+  BeatRGB:
+    build:
+      targets:
+        BeatRGB: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    archive:
+      config: Release

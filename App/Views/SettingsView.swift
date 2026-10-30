@@ -1,0 +1,131 @@
+import BeatRGBKit
+import SwiftUI
+
+struct SettingsView: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Panel(title: "General") {
+                Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { model.launchAtLogin = $0 }))
+                Text(model.launchAtLoginStatus).font(.caption).foregroundStyle(.secondary)
+                Toggle("Run in menu bar only (hide Dock icon)", isOn: $model.prefs.hideDockIcon)
+                Toggle("Start sync when BeatRGB opens", isOn: $model.prefs.startSyncOnLaunch)
+                Text("Closing the window keeps BeatRGB running from the menu bar; use Quit there to exit.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Panel(title: "Keyboard connection") {
+                Picker("Control the keyboard with", selection: $model.prefs.backend) {
+                    ForEach(Backend.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.radioGroup)
+                Text(model.prefs.backend == .native
+                     ? "BeatRGB talks to the K70 CORE RGB TKL over USB itself using the Corsair Peripheral V2 protocol (as implemented by OpenRGB's open-source driver). Quit OpenRGB and iCUE first — only one program can drive the lighting. On stop, “Restore previous lighting” hands the keyboard back to its own on-board effect."
+                     : "BeatRGB sends colours through OpenRGB's SDK server, which must be running.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            if model.prefs.backend == .openRGB {
+            Panel(title: "OpenRGB connection") {
+                HStack {
+                    TextField("Host", text: $model.prefs.host).frame(width: 180)
+                    TextField("Port", value: $model.prefs.port, format: .number.grouping(.never)).frame(width: 80)
+                }
+                .textFieldStyle(.roundedBorder)
+                Toggle("Only control this exact keyboard (match serial number)", isOn: Binding(
+                    get: { model.prefs.lockedSerial != nil },
+                    set: { model.lockToCurrentKeyboard($0) }))
+                    .disabled(model.snapshot.identity == nil && model.prefs.lockedSerial == nil)
+                Text(model.prefs.lockedSerial.map { "Locked to serial \($0)" }
+                     ?? "BeatRGB only drives a Corsair device whose name contains “K70”, “Core” and “TKL”.")
+                    .font(.caption).foregroundStyle(.secondary)
+                DisclosureGroup("How to enable the OpenRGB SDK server") {
+                    Text("""
+                    1. Open OpenRGB and go to the SDK Server tab.
+                    2. Click Start Server (port 6742). To start it automatically, launch OpenRGB with --server --startminimized, or enable “Start Server” under Settings → General.
+                    3. Do not run an effect from the OpenRGB Effects plugin at the same time — BeatRGB renders all effects itself.
+                    4. Quit Corsair iCUE (or disable its lighting) so it doesn't overwrite BeatRGB's colours.
+                    """)
+                    .font(.callout).textSelection(.enabled).padding(.top, 4)
+                }
+            }
+            }
+
+            Panel(title: "When sync stops") {
+                Picker("When sync stops", selection: $model.prefs.stopBehavior) {
+                    ForEach(StopBehavior.allCases) { Text($0.title).tag($0) }
+                }
+                .frame(maxWidth: 360)
+                Toggle("Reconnect automatically", isOn: $model.prefs.autoReconnect)
+            }
+
+            Panel(title: "Audio source") {
+                Picker("Capture from", selection: $model.prefs.captureSource) {
+                    Text(CaptureSource.systemAudio.displayName).tag(CaptureSource.systemAudio)
+                    ForEach(model.inputDevices) { d in
+                        Text("\(d.name)\(d.isLikelyLoopback ? " (loopback)" : " — microphone/input")")
+                            .tag(CaptureSource.inputDevice(uid: d.uid, name: d.name))
+                    }
+                }
+                .frame(maxWidth: 460)
+                HStack {
+                    Button("Refresh devices") { model.refreshInputDevices() }
+                    Spacer()
+                }
+                Text("System audio uses a Core Audio process tap: it hears Spotify, Apple Music, browsers and everything else the Mac plays, on built-in or external outputs, without changing playback and excluding BeatRGB's own sounds. An input device is only used if you pick it here — e.g. a BlackHole loopback as a fallback. Picking a real microphone makes the lights react to the room, not the music.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Panel(title: "Permissions & troubleshooting") {
+                PermissionRow(title: "System Audio Recording",
+                              detail: "Requested the first time sync starts. If audio stays silent while music plays, enable BeatRGB under Screen & System Audio Recording → System Audio Recording Only.",
+                              url: "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture")
+                PermissionRow(title: "Screen Recording (Screen Mirror only)",
+                              detail: ScreenSampler.hasPermission ? "Granted." : "Not granted. Needed only for the Screen Mirror effect.",
+                              url: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+                PermissionRow(title: "Microphone (input-device source only)",
+                              detail: "Needed only if you choose an input device such as BlackHole.",
+                              url: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+                PermissionRow(title: "Input Monitoring (volume knob only)",
+                              detail: "May be needed for the experimental volume knob.",
+                              url: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
+            }
+
+            Panel(title: "Volume knob") {
+                Toggle("Use the K70's rotary dial for Mac volume", isOn: $model.prefs.knobEnabled)
+                Text("When sync is stopped the dial changes volume on its own. While BeatRGB drives the lights over USB, the keyboard reports the dial to BeatRGB instead, and BeatRGB changes the default output's volume through Core Audio. No keyboard events are injected. Pressing the dial isn't supported yet.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if model.prefs.knobEnabled {
+                    LabeledContent("Status", value: knobText)
+                    LabeledContent("Last event", value: model.knobLastEvent)
+                }
+            }
+        }
+    }
+
+    private var knobText: String {
+        switch model.knobState {
+        case .off: return "Off"
+        case .waiting: return "Waiting for the keyboard…"
+        case .listening(let s): return "Listening (\(s))"
+        case .failed(let e): return e
+        }
+    }
+}
+
+struct PermissionRow: View {
+    let title: String
+    let detail: String
+    let url: String
+    var body: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.callout.weight(.medium))
+                Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Button("Open Settings") { if let u = URL(string: url) { NSWorkspace.shared.open(u) } }
+        }
+    }
+}
