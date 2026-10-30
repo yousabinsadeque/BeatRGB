@@ -165,8 +165,7 @@ invented:
 6. **Key mapping.** Each key's slot comes from the controller description OpenRGB reported for *this* keyboard (bundled as `Resources/k70-core-tkl.bin`, ANSI layout id 1).
 7. **On stop.** *Restore previous lighting* switches back to hardware mode (`SET 0x03 = 1`), so the keyboard resumes its own on-board effect, as OpenRGB does on exit. *Show idle colour* and *Turn lights off* write that frame and leave software mode on.
 
-Licence note: this is a port of GPL-2.0-or-later OpenRGB code, so BeatRGB should be treated as
-GPL-2.0-or-later if you distribute it.
+This driver is a port of GPL-2.0-or-later OpenRGB code, so BeatRGB is released under the same licence (see below).
 
 ## Project layout
 
@@ -191,3 +190,9 @@ windows/                     Windows app (see windows/README.md)
 ├─ BeatRGB.Core.Tests/       xUnit tests (share the K70 fixtures above)
 └─ BeatRGB.Windows/          WinForms app: WASAPI loopback audio, GDI screen sampler, tray icon
 ```
+
+## Licence
+
+BeatRGB is free software, licensed under the **GNU General Public License v2.0 or later**
+(`GPL-2.0-or-later`), the same licence as [OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB),
+whose Corsair Peripheral V2 driver the native USB backend is ported from. See [LICENSE](LICENSE).
