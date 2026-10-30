@@ -88,7 +88,7 @@ public enum OpenRGBError: Error, Equatable, CustomStringConvertible {
         case .closed: return "OpenRGB closed the connection."
         case .io(let s): return "Socket error: \(s)"
         case .malformed(let s): return "Malformed controller data: \(s)"
-        case .deviceNotFound: return "Corsair K70 CORE RGB TKL not reported by OpenRGB."
+        case .deviceNotFound: return "The keyboard is no longer reported by OpenRGB."
         case .noDirectMode: return "The keyboard does not expose a Direct mode in OpenRGB."
         case .directModeRejected(let s): return "OpenRGB did not switch the keyboard to Direct mode (active: \(s))."
         }

@@ -13,7 +13,9 @@ struct DiagnosticsView: View {
                 LabeledContent("System audio capture", value: "Core Audio process tap (macOS 14.2+) — supported")
                 LabeledContent("Screen Mirror", value: "ScreenCaptureKit — \(ScreenSampler.hasPermission ? "permission granted" : "permission not granted")")
                 LabeledContent(model.connectionTitle, value: model.connectionStatus.1 + (model.connectionStatus.2.map { " · \($0)" } ?? ""))
-                LabeledContent("Target keyboard", value: "Corsair K70 CORE RGB TKL (USB 1B1C:2B01)")
+                LabeledContent("Target keyboard", value: model.prefs.backend == .native
+                               ? "Corsair K70 CORE RGB TKL (USB 1B1C:2B01)"
+                               : model.snapshot.identity.map { "\($0.name) (\($0.vendor))" } ?? model.prefs.deviceName ?? "First RGB keyboard OpenRGB reports")
                 LabeledContent("Other RGB software", value: model.otherRGBApps.isEmpty ? "None detected" : model.otherRGBApps.joined(separator: ", "))
             }
 

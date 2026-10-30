@@ -91,15 +91,24 @@ func fixture(_ version: Int) throws -> [UInt8] {
                   activeMode: 0, modes: [RGBMode(name: "Direct")], zones: [], leds: [], colors: [])
     }
 
-    @Test func selectsK70CoreTKLOnly() {
-        let list = [device("Corsair K70 RGB PRO"), device("Corsair K70 Core RGB"), device("Razer Huntsman", vendor: "Razer"),
-                    device("Corsair K70 Core RGB TKL", serial: "ABC")]
-        #expect(DeviceMatcher.k70CoreTKL.select(from: list)?.serial == "ABC")
-        #expect(DeviceMatcher.k70CoreTKL.select(from: Array(list.prefix(3))) == nil)
+    @Test func automaticPicksFirstKeyboardWithDirectMode() {
+        var mouse = device("Logitech G502", vendor: "Logitech"); mouse.type = 6
+        var noDirect = device("Razer Huntsman", vendor: "Razer"); noDirect.modes = [RGBMode(name: "Static")]
+        let list = [mouse, noDirect, device("SteelSeries Apex 7", vendor: "SteelSeries", serial: "ABC")]
+        #expect(DeviceMatcher.automatic.select(from: list)?.serial == "ABC")
+        #expect(DeviceMatcher.automatic.select(from: [mouse, noDirect])?.name == "Razer Huntsman")
+        #expect(DeviceMatcher.automatic.select(from: [mouse]) == nil)
+    }
+
+    @Test func pickedNameSelectsAnyDevice() {
+        var mouse = device("Logitech G502", vendor: "Logitech"); mouse.type = 6
+        let m = DeviceMatcher(name: "Logitech G502")
+        #expect(m.select(from: [device("Corsair K70 Core RGB TKL"), mouse])?.name == "Logitech G502")
+        #expect(m.select(from: [device("Corsair K70 Core RGB TKL")]) == nil)
     }
 
     @Test func serialTakesPrecedence() {
-        let m = DeviceMatcher(serial: "XYZ")
+        let m = DeviceMatcher(serial: "XYZ", name: "Corsair K70 Core RGB TKL")
         #expect(m.select(from: [device("Corsair K70 Core RGB TKL", serial: "ABC"), device("Other", serial: "XYZ")])?.name == "Other")
     }
 

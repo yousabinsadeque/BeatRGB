@@ -28,8 +28,8 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.radioGroup)
                 Text(model.prefs.backend == .native
-                     ? "BeatRGB talks to the K70 CORE RGB TKL over USB itself using the Corsair Peripheral V2 protocol (as implemented by OpenRGB's open-source driver). Quit OpenRGB and iCUE first — only one program can drive the lighting. On stop, “Restore previous lighting” hands the keyboard back to its own on-board effect."
-                     : "BeatRGB sends colours through OpenRGB's SDK server, which must be running.")
+                     ? "Only for the Corsair K70 CORE RGB TKL: BeatRGB talks to it over USB itself using the Corsair Peripheral V2 protocol (as implemented by OpenRGB's open-source driver). Quit OpenRGB and iCUE first — only one program can drive the lighting. On stop, “Restore previous lighting” hands the keyboard back to its own on-board effect. For any other keyboard, choose OpenRGB."
+                     : "Works with any RGB keyboard OpenRGB supports (Corsair, Razer, Logitech, SteelSeries, ASUS, HyperX, Redragon and many more — see openrgb.org/devices). BeatRGB sends colours through OpenRGB's SDK server, which must be running, and lays effects out using the key map OpenRGB reports.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -40,12 +40,23 @@ struct SettingsView: View {
                     TextField("Port", value: $model.prefs.port, format: .number.grouping(.never)).frame(width: 80)
                 }
                 .textFieldStyle(.roundedBorder)
+                HStack {
+                    Picker("Keyboard", selection: $model.prefs.deviceName) {
+                        Text("Automatic — first RGB keyboard").tag(String?.none)
+                        ForEach(pickerNames, id: \.self) { name in Text(name).tag(String?.some(name)) }
+                    }
+                    .frame(maxWidth: 420)
+                    Button("Refresh") { model.refreshOpenRGBDevices() }
+                }
+                .onAppear { model.refreshOpenRGBDevices() }
+                if let e = model.deviceScanError { Text(e).font(.caption).foregroundStyle(.secondary) }
                 Toggle("Only control this exact keyboard (match serial number)", isOn: Binding(
                     get: { model.prefs.lockedSerial != nil },
                     set: { model.lockToCurrentKeyboard($0) }))
                     .disabled(model.snapshot.identity == nil && model.prefs.lockedSerial == nil)
                 Text(model.prefs.lockedSerial.map { "Locked to serial \($0)" }
-                     ?? "BeatRGB only drives a Corsair device whose name contains “K70”, “Core” and “TKL”.")
+                     ?? (model.prefs.deviceName.map { "BeatRGB drives “\($0)”." }
+                         ?? "BeatRGB drives the first keyboard OpenRGB reports that has a Direct (per-key) mode. Pick one above to choose another device."))
                     .font(.caption).foregroundStyle(.secondary)
                 DisclosureGroup("How to enable the OpenRGB SDK server") {
                     Text("""
@@ -100,7 +111,7 @@ struct SettingsView: View {
             }
 
             Panel(title: "Volume knob") {
-                Toggle("Use the K70's rotary dial for Mac volume", isOn: $model.prefs.knobEnabled)
+                Toggle("Use the K70 CORE's rotary dial for Mac volume", isOn: $model.prefs.knobEnabled)
                 Text("When sync is stopped the dial changes volume on its own. While BeatRGB drives the lights over USB, the keyboard reports the dial to BeatRGB instead, and BeatRGB changes the default output's volume through Core Audio. No keyboard events are injected. Pressing the dial isn't supported yet.")
                     .font(.caption).foregroundStyle(.secondary)
                 if model.prefs.knobEnabled {
@@ -109,6 +120,13 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    /// Names from the last scan, plus the saved pick so the picker never shows a blank selection.
+    private var pickerNames: [String] {
+        var names = model.openRGBDevices.map(\.name)
+        if let n = model.prefs.deviceName, !names.contains(n) { names.append(n) }
+        return names.reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
     }
 
     private var knobText: String {

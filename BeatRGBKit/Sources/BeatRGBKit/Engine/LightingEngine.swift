@@ -17,12 +17,12 @@ public struct EngineConfig: Equatable, Sendable {
     public var backend = Backend.openRGB
     public var host = "127.0.0.1"
     public var port: UInt16 = OpenRGBProtocol.defaultPort
-    public var matcher = DeviceMatcher.k70CoreTKL
+    public var matcher = DeviceMatcher.automatic
     public var autoReconnect = true
     public var stopBehavior = StopBehavior.restorePrevious
     public init() {}
 
-    var driverKey: String { "\(backend.rawValue)|\(host)|\(port)|\(matcher.serial ?? "")" }
+    var driverKey: String { "\(backend.rawValue)|\(host)|\(port)|\(matcher.serial ?? "")|\(matcher.name ?? "")" }
 }
 
 public enum ConnectionState: Equatable, Sendable {

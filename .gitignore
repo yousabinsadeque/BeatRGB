@@ -3,3 +3,8 @@ BeatRGB.xcodeproj/
 xcuserdata/
 DerivedData/
 .DS_Store
+# Windows (.NET) build output
+windows/**/bin/
+windows/**/obj/
+windows/.vs/
+*.user

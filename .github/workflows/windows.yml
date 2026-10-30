@@ -1,0 +1,44 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Test the engine
+        run: dotnet test windows/BeatRGB.Core.Tests/BeatRGB.Core.Tests.csproj -c Release
+
+      - name: Publish BeatRGB.exe
+        run: >
+          dotnet publish windows/BeatRGB.Windows/BeatRGB.Windows.csproj -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
+
+      - name: Zip
+        run: Compress-Archive -Path publish/BeatRGB.exe, windows/README.md -DestinationPath BeatRGB-Windows-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BeatRGB-Windows-x64
+          path: BeatRGB-Windows-x64.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" BeatRGB-Windows-x64.zip --title "BeatRGB ${{ github.ref_name }}" --generate-notes

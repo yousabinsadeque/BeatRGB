@@ -7,8 +7,8 @@ public enum Backend: String, Codable, CaseIterable, Identifiable, Sendable {
     public var id: String { rawValue }
     public var title: String {
         switch self {
-        case .openRGB: return "OpenRGB SDK"
-        case .native: return "Native USB (no OpenRGB)"
+        case .openRGB: return "OpenRGB — any RGB keyboard OpenRGB supports"
+        case .native: return "Native USB — Corsair K70 CORE RGB TKL only"
         }
     }
 }
@@ -147,7 +147,7 @@ public enum DriverError: Error, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .deviceMissing(let a):
-            return "Corsair K70 CORE RGB TKL not found" + (a.isEmpty ? " (no devices reported)." : ". Available: \(a.joined(separator: ", ")).")
+            return "No matching RGB keyboard found" + (a.isEmpty ? " (OpenRGB reports no devices)." : ". Available: \(a.joined(separator: ", ")).")
         case .deviceChanged(let s): return s
         }
     }

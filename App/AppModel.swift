@@ -20,6 +20,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var otherRGBApps: [String] = []
     @Published private(set) var silentFor: TimeInterval = 0
     @Published private(set) var inputDevices: [AudioDeviceInfo] = []
+    /// Devices OpenRGB reported in the last scan (for the keyboard picker).
+    @Published private(set) var openRGBDevices: [RGBDevice] = []
+    @Published private(set) var deviceScanError: String?
     @Published var testResult: String?
 
     // Profiles
@@ -111,6 +114,18 @@ final class AppModel: ObservableObject {
                 switch result {
                 case .success(let detail): self.testResult = "\(detail). Check that the physical keys changed."
                 case .failure(let e): self.testResult = "Failed: \((e as? OpenRGBError)?.description ?? "\(e)")"
+                }
+            }
+        }
+    }
+
+    /// Refreshes the keyboard picker's list from OpenRGB.
+    func refreshOpenRGBDevices() {
+        engine.scanDevices { result in
+            Task { @MainActor in
+                switch result {
+                case .success(let devices): self.openRGBDevices = devices; self.deviceScanError = nil
+                case .failure(let e): self.deviceScanError = (e as? OpenRGBError)?.description ?? "\(e)"
                 }
             }
         }
@@ -300,6 +315,10 @@ final class AppModel: ObservableObject {
             let id = (app.bundleIdentifier ?? "").lowercased(), name = app.localizedName ?? ""
             if id.contains("corsair") || name.lowercased().contains("icue") { return "Corsair iCUE" }
             if id.contains("signalrgb") { return "SignalRGB" }
+            let lower = name.lowercased()
+            if lower.contains("razer synapse") { return "Razer Synapse" }
+            if id.contains("com.logi.ghub") || lower.contains("g hub") { return "Logitech G HUB" }
+            if lower.contains("steelseries") { return "SteelSeries GG" }
             if prefs.backend == .native && name.lowercased().hasPrefix("openrgb") { return "OpenRGB" }
             return nil
         }.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
@@ -313,13 +332,15 @@ final class AppModel: ObservableObject {
 
 /// Persisted app preferences (UserDefaults, JSON-encoded).
 struct Preferences: Codable, Equatable {
-    var backend = Backend.native
+    var backend = Backend.openRGB
     var host = "127.0.0.1"
     var port: Int = 6742
     var autoReconnect = true
     var stopBehavior = StopBehavior.restorePrevious
     var captureSource = CaptureSource.systemAudio
     var lockedSerial: String?
+    /// OpenRGB device picked in Settings; nil = first RGB keyboard found.
+    var deviceName: String?
     var knobEnabled = true
     var hideDockIcon = false
     var startSyncOnLaunch = false
@@ -332,7 +353,7 @@ struct Preferences: Codable, Equatable {
         c.autoReconnect = autoReconnect
         c.stopBehavior = stopBehavior
         c.backend = backend
-        c.matcher = DeviceMatcher(serial: lockedSerial)
+        c.matcher = DeviceMatcher(serial: lockedSerial, name: deviceName)
         return c
     }
 
@@ -357,7 +378,7 @@ struct Preferences: Codable, Equatable {
         host = v(.host, d.host); port = v(.port, d.port); autoReconnect = v(.autoReconnect, d.autoReconnect)
         backend = v(.backend, d.backend)
         stopBehavior = v(.stopBehavior, d.stopBehavior); captureSource = v(.captureSource, d.captureSource)
-        lockedSerial = v(.lockedSerial, d.lockedSerial); knobEnabled = v(.knobEnabled, d.knobEnabled)
+        lockedSerial = v(.lockedSerial, d.lockedSerial); deviceName = v(.deviceName, d.deviceName); knobEnabled = v(.knobEnabled, d.knobEnabled)
         hideDockIcon = v(.hideDockIcon, d.hideDockIcon); startSyncOnLaunch = v(.startSyncOnLaunch, d.startSyncOnLaunch)
         openInBackground = v(.openInBackground, d.openInBackground)
     }

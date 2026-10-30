@@ -119,26 +119,25 @@ public struct DeviceIdentity: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-/// How BeatRGB picks its target among the controllers OpenRGB reports.
+/// How BeatRGB picks its target among the controllers OpenRGB reports. Works with any keyboard
+/// OpenRGB supports: a remembered serial wins, then a device the user picked by name, otherwise the
+/// first keyboard that has a Direct (per-LED) mode.
 public struct DeviceMatcher: Equatable, Sendable {
     /// Exact serial remembered from a previous session (preferred when present).
     public var serial: String?
-    /// Case-insensitive name fragments that all must be present.
-    public var nameFragments: [String]
+    /// Exact device name the user picked; nil means automatic.
+    public var name: String?
 
-    public init(serial: String? = nil, nameFragments: [String] = ["k70", "core", "tkl"]) {
-        self.serial = serial; self.nameFragments = nameFragments
+    public init(serial: String? = nil, name: String? = nil) {
+        self.serial = serial; self.name = name
     }
 
-    public static let k70CoreTKL = DeviceMatcher()
-
-    public func matches(_ d: RGBDevice) -> Bool {
-        if let serial, !serial.isEmpty { return d.serial == serial }
-        let n = d.name.lowercased()
-        return d.vendor.lowercased().contains("corsair") && nameFragments.allSatisfy { n.contains($0) }
-    }
+    public static let automatic = DeviceMatcher()
 
     public func select(from devices: [RGBDevice]) -> RGBDevice? {
-        devices.first(where: matches)
+        if let serial, !serial.isEmpty { return devices.first { $0.serial == serial } }
+        if let name, !name.isEmpty { return devices.first { $0.name == name } }
+        let keyboards = devices.filter { $0.type == RGBDevice.typeKeyboard }
+        return keyboards.first { $0.directModeIndex != nil } ?? keyboards.first
     }
 }

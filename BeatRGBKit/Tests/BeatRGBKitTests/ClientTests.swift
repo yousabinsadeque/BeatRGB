@@ -143,7 +143,7 @@ final class FakeOpenRGBServer: @unchecked Sendable {
         try c.connect()
         let all = try c.allControllers()
         #expect(all.count == 2)
-        let kb = try #require(DeviceMatcher.k70CoreTKL.select(from: all))
+        let kb = try #require(DeviceMatcher.automatic.select(from: all))
         #expect(kb.index == 1)
         let direct = try c.enableDirectMode(kb)
         #expect(direct.activeModeName == "Direct")

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Platform-neutral engine (OpenRGB client, audio analysis, effects). Builds and tests on any OS;
+       the Windows app supplies audio and screen capture. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>BeatRGB.Core</RootNamespace>
+  </PropertyGroup>
+
+</Project>
